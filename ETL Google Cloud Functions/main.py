@@ -5,7 +5,7 @@ from google.cloud import bigquery
 import featuretools as ft
 
 # BigQuery dataset
-DATAWAREHOUSE = "data-warehouse-441704.Ecommerce_DW"
+DATAWAREHOUSE = "project_id.dataset_id"
 
 # Initialize BigQuery client globally
 client = bigquery.Client()
@@ -34,7 +34,7 @@ def ETLpipeline(event, context):
 
         # 4. OrderDetails Table
         orderDetails_df = df[['Order ID', 'Product ID', 'Customer ID', 'Sales', 'Quantity', 'Discount', 'Profit']].drop_duplicates(subset=['Order ID', 'Product ID']).reset_index(drop=True)
-        orderDetails_df['OrderDetail ID'] = orderDetails_df['Order ID'].astype(str) + "_" + orderDetails_df['Product ID'].astype(str)
+        orderDetails_df['Order_Product_ID'] = orderDetails_df['Order ID'].astype(str) + "_" + orderDetails_df['Product ID'].astype(str)
 
 
         # Step 2: Perform feature engineering using Featuretools
@@ -45,7 +45,7 @@ def ETLpipeline(event, context):
         customers_entity = es.add_dataframe(dataframe=customers_df, dataframe_name='Customers',  index='Customer ID')
         products_entity = es.add_dataframe(dataframe=products_df,  dataframe_name='Products',  index='Product ID'  )
         orders_entity = es.add_dataframe(dataframe=orders_df,  dataframe_name='Orders',  index='Order ID')
-        orderDetails_entity = es.add_dataframe(dataframe=orderDetails_df,  dataframe_name='OrderDetails',  index='OrderDetail ID')
+        orderDetails_entity = es.add_dataframe(dataframe=orderDetails_df,  dataframe_name='OrderDetails',  index='Order_Product_ID')
 
         # DEFINE RELATIONSHIP
         relationships = [
@@ -92,12 +92,10 @@ def ETLpipeline(event, context):
 
         orderDetails_df = orderDetails_df.merge(
             selected_features_df,
-            on="OrderDetail ID",
+            on="Order_Product_ID",
             how="left"
         )
         
-        orderDetails_df = orderDetails_df.drop(columns=["OrderDetail ID"])
-
          # Step 3: Load data into BigQuery as DataWarehouse
         def load_to_bigquery(df, table_name):
             table_id = f"{DATAWAREHOUSE}.{table_name}"
